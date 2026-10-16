@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lernspiel – Buchstaben</title>
+  <!-- Bootstrap 5 CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* ============================================================
+       KONSTANTEN (im CSS spiegeln sich die JS-Konstanten wider)
+       ============================================================ */
+    :root {
+      --bg-gradient-top: #c8e6c9;      /* Helles Pastellgrün */
+      --bg-gradient-bottom: #81c784;   /* Kräftigeres Grün */
+      --card-bg: rgba(255, 255, 255, 0.75);
+      --btn-radius: 1.5rem;
+      --btn-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+      --font-family: 'Comic Sans MS', 'Chalkboard SE', 'Segoe UI', system-ui, sans-serif;
+      --letter-display-size: 34vh;      /* 30–40 % der Bildschirmhöhe */
+      --answer-btn-size: min(18vw, 18vh);
+      --correct-green: #a5d6a7;
+      --wrong-red: #e6a5a5;
+      --star-color: #ffb74d;
+      --star-empty: #cfd8dc;
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-family);
+      background: linear-gradient(160deg, var(--bg-gradient-top) 0%, var(--bg-gradient-bottom) 100%);
+      background-attachment: fixed;
+      overflow: hidden;
+    }
+
+    /* ---------- Start-/Einstellungsbildschirm ---------- */
+    #settings-screen {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    .settings-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(6px);
+      border-radius: 2rem;
+      padding: 2rem 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .setting-row {
+      margin-bottom: 1.6rem;
+    }
+
+    .setting-row:last-of-type {
+      margin-bottom: 2rem;
+    }
+
+    .stars {
+      display: flex;
+      justify-content: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .star {
+      font-size: 2.4rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: transform 0.15s ease, color 0.15s ease;
+      color: var(--star-empty);
+      padding: 0.2rem;
+      min-width: 48px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .star.active {
+      color: var(--star-color);
+      transform: scale(1.15);
+    }
+
+    .star:active {
+      transform: scale(0.9);
+    }
+
+    .setting-label {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #555;
+      margin-top: 0.4rem;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .start-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 90px;
+      font-size: 2.4rem;
+      border-radius: var(--btn-radius);
+      border: none;
+      background: #66bb6a;
+      color: #fff;
+      box-shadow: var(--btn-shadow);
+      transition: transform 0.15s ease, background 0.15s ease;
+      font-family: var(--font-family);
+    }
+
+    .start-btn:active {
+      transform: scale(0.96);
+      background: #4caf50;
+    }
+
+    /* ---------- Spielbildschirm ---------- */
+    #game-screen {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      padding: 0.8rem;
+      position: relative;
+    }
+
+    #game-screen.active {
+      display: flex;
+    }
+
+    .game-topbar {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      padding: 0.2rem 0.4rem;
+    }
+
+    .home-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: var(--btn-shadow);
+      font-size: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+      color: #4a4a4a;
+    }
+
+    .home-btn:active {
+      transform: scale(0.9);
+    }
+
+    .letter-display-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    .letter-display {
+      font-size: var(--letter-display-size);
+      font-weight: bold;
+      color: #2e7d32;
+      text-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease, color 0.2s ease;
+      line-height: 1;
+    }
+
+    .letter-display.correct-pop {
+      animation: pop 0.45s ease;
+      color: #1b5e20;
+    }
+
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.25); }
+      100% { transform: scale(1); }
+    }
+
+    .answers-area {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      padding: 1rem 0.5rem 1.5rem;
+    }
+
+    .answer-btn {
+      width: var(--answer-btn-size);
+      height: var(--answer-btn-size);
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: var(--btn-shadow);
+      font-size: calc(var(--answer-btn-size) * 0.45);
+      font-weight: bold;
+      color: #33691e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
+      font-family: var(--font-family);
+      padding: 0;
+      line-height: 1;
+    }
+
+    .answer-btn:active {
+      transform: scale(0.92);
+    }
+
+    .answer-btn.correct-flash {
+      background: var(--correct-green);
+      animation: correctPop 0.5s ease;
+    }
+
+    @keyframes correctPop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    .answer-btn.wrong-shake {
+      background: var(--wrong-red);
+      animation: shake 0.45s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%      { transform: translateX(-8px); }
+      40%      { transform: translateX(8px); }
+      60%      { transform: translateX(-6px); }
+      80%      { transform: translateX(6px); }
+    }
+
+    /* Querformat-Anpassung */
+    @media (orientation: landscape) {
+      :root {
+        --letter-display-size: 26vh;
+        --answer-btn-size: min(14vw, 22vh);
+      }
+      #game-screen {
+        flex-direction: row;
+        align-items: center;
+      }
+      .game-topbar {
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        z-index: 10;
+      }
+      .letter-display-area {
+        flex: 1;
+      }
+      .answers-area {
+        flex: 1;
+        flex-wrap: wrap;
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== EINSTELLUNGSBILDSCHIRM ==================== -->
+  <div id="settings-screen">
+    <div class="settings-card">
+      <h2 class="text-center mb-4" style="font-family: var(--font-family); color: #2e7d32;">⚙️ Einstellungen</h2>
+
+      <!-- Buchstabenmenge (1–5 Sterne) -->
+      <div class="setting-row">
+        <div class="stars" id="stars-letter-set" data-setting="letterSet">
+          <span class="star" data-value="1">★</span>
+          <span class="star" data-value="2">★</span>
+          <span class="star" data-value="3">★</span>
+          <span class="star" data-value="4">★</span>
+          <span class="star" data-value="5">★</span>
+        </div>
+        <div class="setting-label">Buchstabenmenge</div>
+      </div>
+
+      <!-- Groß-/Kleinschreibung (1–3 Sterne) -->
+      <div class="setting-row">
+        <div class="stars" id="stars-case" data-setting="caseMode">
+          <span class="star" data-value="1">★</span>
+          <span class="star" data-value="2">★</span>
+          <span class="star" data-value="3">★</span>
+        </div>
+        <div class="setting-label">Groß-/Kleinschreibung</div>
+      </div>
+
+      <!-- Auswahlanzahl (1–4 Sterne) -->
+      <div class="setting-row">
+        <div class="stars" id="stars-choices" data-setting="choiceCount">
+          <span class="star" data-value="1">★</span>
+          <span class="star" data-value="2">★</span>
+          <span class="star" data-value="3">★</span>
+          <span class="star" data-value="4">★</span>
+        </div>
+        <div class="setting-label">Auswahlanzahl</div>
+      </div>
+
+      <!-- Start-Button -->
+      <button class="start-btn" id="start-btn">▶ Los</button>
+    </div>
+  </div>
+
+  <!-- ==================== SPIELBILDSCHIRM ==================== -->
+  <div id="game-screen">
+    <div class="game-topbar">
+      <button class="home-btn" id="home-btn" aria-label="Zurück">🏠</button>
+    </div>
+    <div class="letter-display-area">
+      <div class="letter-display" id="letter-display">A</div>
+    </div>
+    <div class="answers-area" id="answers-area"></div>
+  </div>
+
+  <script>
+    // ================================================================
+    // KONSTANTEN – hier leicht anpassbar
+    // ================================================================
+
+    /** Buchstaben nach visueller Einfachheit sortiert (einfach → komplex) */
+    const LETTER_ORDER = [
+      'O', 'I', 'L', 'T', 'S', 'A', 'M', 'E', 'F', 'H',
+      'X', 'U', 'V', 'W', 'C', 'G', 'J', 'P', 'R', 'B',
+      'D', 'K', 'N', 'Y', 'Z', 'Q'
+    ];
+
+    /** Wie viele Buchstaben pro Buchstabenmenge-Stern verwendet werden */
+    const LETTER_SET_SIZES = {
+      1: 4,    // sehr einfache Buchstaben
+      2: 8,
+      3: 14,
+      4: 20,
+      5: 26    // alle
+    };
+
+    /** Groß-/Kleinschreibung: 1=nur Groß, 2=nur Klein, 3=gemischt */
+    const CASE_GROSS = 1;
+    const CASE_KLEIN = 2;
+    const CASE_GEMISCHT = 3;
+
+    /** Auswahlanzahl: Sterne → tatsächliche Buttonanzahl */
+    const CHOICE_COUNTS = {
+      1: 2,
+      2: 3,
+      3: 4,
+      4: 5
+    };
+
+    /** Verzögerung nach richtiger Antwort (ms) */
+    const NEXT_ROUND_DELAY = 800;
+
+    /** Dauer der Animationen (ms) */
+    const ANIM_CORRECT = 500;
+    const ANIM_WRONG = 450;
+
+    // ================================================================
+    // ZUSTAND
+    // ================================================================
+
+    const state = {
+      letterSet: 1,       // 1–5
+      caseMode: 1,        // 1–3
+      choiceCount: 1,     // 1–4
+      currentLetter: null,
+      lastLetter: null,
+      answerButtons: [],
+      correctIndex: -1,
+      lastCorrectIndex: -1, // für Abwechslung bei 2 Optionen
+      locked: false       // sperrt Eingaben während Animation
+    };
+
+    // ================================================================
+    // DOM-REFERENZEN
+    // ================================================================
+
+    const settingsScreen = document.getElementById('settings-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const letterDisplay = document.getElementById('letter-display');
+    const answersArea = document.getElementById('answers-area');
+    const startBtn = document.getElementById('start-btn');
+    const homeBtn = document.getElementById('home-btn');
+
+    // ================================================================
+    // WEB AUDIO – sanfte Töne
+    // ================================================================
+
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    /** Spielt einen sanften, kurzen Ton (C-Dur-artig, angenehm) */
+    function playCorrectSound() {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        // Sanfter Zweiklang: C5 + E5
+        [523.25, 659.25].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(0.12, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + i * 0.08);
+          osc.stop(now + 0.5);
+        });
+      } catch (e) {
+        // Ton ist optional – Fehler ignorieren
+      }
+    }
+
+    // ================================================================
+    // STERNEN-EINSTELLUNGEN
+    // ================================================================
+
+    /** Initialisiert die Sterne für eine Einstellungsgruppe */
+    function initStars(containerId, settingKey, maxStars) {
+      const container = document.getElementById(containerId);
+      const stars = container.querySelectorAll('.star');
+
+      stars.forEach(star => {
+        star.addEventListener('click', () => {
+          const value = parseInt(star.dataset.value, 10);
+          state[settingKey] = value;
+          updateStars(container, value);
+        });
+      });
+
+      // Anfangswert setzen
+      updateStars(container, state[settingKey]);
+    }
+
+    /** Aktualisiert die Darstellung der Sterne */
+    function updateStars(container, activeValue) {
+      container.querySelectorAll('.star').forEach(star => {
+        const val = parseInt(star.dataset.value, 10);
+        star.classList.toggle('active', val <= activeValue);
+      });
+    }
+
+    // ================================================================
+    // HILFSFUNKTIONEN
+    // ================================================================
+
+    /** Fisher-Yates-Shuffle */
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    /** Gibt die aktive Buchstabenliste basierend auf letterSet zurück */
+    function getActiveLetters() {
+      const count = LETTER_SET_SIZES[state.letterSet] || 4;
+      return LETTER_ORDER.slice(0, count);
+    }
+
+    /** Entscheidet den Fall für einen Buchstaben je nach caseMode */
+    function applyCase(letter) {
+      if (state.caseMode === CASE_GROSS) return letter.toUpperCase();
+      if (state.caseMode === CASE_KLEIN) return letter.toLowerCase();
+      // Gemischt: zufällig Groß oder Klein
+      return Math.random() < 0.5 ? letter.toUpperCase() : letter.toLowerCase();
+    }
+
+    // ================================================================
+    // SPIEL-LOGIK
+    // ================================================================
+
+    /** Startet eine neue Runde */
+    function newRound() {
+      state.locked = false;
+
+      const activeLetters = getActiveLetters();
+      const numChoices = CHOICE_COUNTS[state.choiceCount] || 2;
+
+      // --- Gesuchten Buchstaben wählen (nicht derselbe wie zuvor) ---
+      let candidates = activeLetters.filter(l => l !== state.lastLetter);
+      if (candidates.length === 0) candidates = activeLetters;
+
+      const correctBase = candidates[Math.floor(Math.random() * candidates.length)];
+      state.currentLetter = correctBase;
+      state.lastLetter = correctBase;
+
+      // --- Anzeige-Fall bestimmen ---
+      // Bei "gemischt" wird pro Runde EIN Fall für die Anzeige gewählt.
+      // Die Auswahl-Buttons folgen demselben Fall-Modus.
+      let displayCase;
+      if (state.caseMode === CASE_GEMISCHT) {
+        displayCase = Math.random() < 0.5 ? 'upper' : 'lower';
+      } else {
+        displayCase = state.caseMode === CASE_GROSS ? 'upper' : 'lower';
+      }
+
+      const formatLetter = (l) => displayCase === 'upper' ? l.toUpperCase() : l.toLowerCase();
+
+      // --- Großen Buchstaben anzeigen ---
+      letterDisplay.textContent = formatLetter(correctBase);
+      letterDisplay.classList.remove('correct-pop');
+
+      // --- Falsche Antworten wählen ---
+      const wrongCandidates = activeLetters.filter(l => l !== correctBase);
+      const shuffledWrong = shuffle(wrongCandidates);
+      const wrongCount = Math.min(numChoices - 1, shuffledWrong.length);
+      const wrongLetters = shuffledWrong.slice(0, wrongCount);
+
+      // --- Alle Antwortoptionen zusammenstellen ---
+      let options = [correctBase, ...wrongLetters];
+      options = shuffle(options);
+
+      // --- Position der richtigen Antwort ggf. korrigieren ---
+      let correctIndex = options.indexOf(correctBase);
+
+      // Bei 2 Optionen: abwechselnd links/rechts
+      if (numChoices === 2) {
+        if (state.lastCorrectIndex === 0) {
+          correctIndex = 1;
+        } else {
+          correctIndex = 0;
+        }
+        // Optionen neu anordnen
+        const other = options.find((_, i) => i !== correctIndex);
+        const newOptions = [];
+        newOptions[correctIndex] = correctBase;
+        newOptions[1 - correctIndex] = options.find(l => l !== correctBase);
+        options = newOptions;
+      }
+
+      state.correctIndex = correctIndex;
+      state.lastCorrectIndex = correctIndex;
+      state.answerButtons = [];
+
+      // --- Buttons rendern ---
+      answersArea.innerHTML = '';
+      options.forEach((letter, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'answer-btn';
+        btn.textContent = formatLetter(letter);
+        btn.dataset.index = idx;
+        btn.addEventListener('click', () => handleAnswer(idx, btn));
+        answersArea.appendChild(btn);
+        state.answerButtons.push(btn);
+      });
+    }
+
+    /** Verarbeitet einen Klick auf einen Antwort-Button */
+    function handleAnswer(index, btn) {
+      if (state.locked) return;
+      state.locked = true;
+
+      const isCorrect = index === state.correctIndex;
+
+      if (isCorrect) {
+        // --- Richtig ---
+        btn.classList.add('correct-flash');
+        letterDisplay.classList.add('correct-pop');
+        playCorrectSound();
+
+        // Nach kurzer Pause nächste Runde
+        setTimeout(() => {
+          newRound();
+        }, NEXT_ROUND_DELAY);
+
+      } else {
+        // --- Falsch ---
+        btn.classList.add('wrong-shake');
+
+        // Animation zurücksetzen, damit erneutes Tippen möglich ist
+        setTimeout(() => {
+          btn.classList.remove('wrong-shake');
+          state.locked = false;
+        }, ANIM_WRONG);
+      }
+    }
+
+    // ================================================================
+    // BILDSCHIRM-WECHSEL
+    // ================================================================
+
+    function showSettings() {
+      gameScreen.classList.remove('active');
+      settingsScreen.style.display = 'flex';
+    }
+
+    function showGame() {
+      settingsScreen.style.display = 'none';
+      gameScreen.classList.add('active');
+      newRound();
+    }
+
+    // ================================================================
+    // INITIALISIERUNG
+    // ================================================================
+
+    function init() {
+      // Sterne initialisieren
+      initStars('stars-letter-set', 'letterSet', 5);
+      initStars('stars-case', 'caseMode', 3);
+      initStars('stars-choices', 'choiceCount', 4);
+
+      // Start-Button
+      startBtn.addEventListener('click', () => {
+        // AudioContext bei erster Interaktion entsperren
+        try { getAudioContext(); } catch (e) {}
+        showGame();
+      });
+
+      // Home-Button
+      homeBtn.addEventListener('click', showSettings);
+
+      // Verhindere Doppeltipp-Zoom auf Tablets
+      document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+    }
+
+    init();
+  </script>
+</body>
+</html>
