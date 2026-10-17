@@ -1,4 +1,5 @@
 Ich habe das Spiel mit einem generierten Prompt aus und mit deepseek generiert:
+https://boiler-byte.github.io/Buchstaben/
 
 Rolle: Erstelle eine einzelne HTML-Datei mit eingebettetem CSS und JavaScript für ein Lernspiel für Kleinkinder (3–5 Jahre). Kein Build-Tool, keine Frameworks außer Bootstrap 5 (per CDN). Die Datei muss direkt im Browser auf einem Tablet lauffähig sein.
 
